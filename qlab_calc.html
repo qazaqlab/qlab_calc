@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qlab Studio — Калькулятор и База заказов 3D печати</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome Icons (No Emojis) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Firebase Compat CDN for Real-time Cloud Multi-device Sync -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <!-- QRCode.js CDN for Mobile Quick Connect -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #09090e;
+      --surface: #101016;
+      --surface2: #171720;
+      --surface3: #1f1f2c;
+      --border: rgba(255, 255, 255, 0.08);
+      --border2: rgba(255, 255, 255, 0.14);
+      --text: #f0f0f8;
+      --text2: rgba(240, 240, 248, 0.6);
+      --text3: rgba(240, 240, 248, 0.35);
+      --accent: #7c6fff;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --cyan: #06b6d4;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'Space Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font-head);
+      background-color: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    .font-mono {
+      font-family: var(--font-mono);
+    }
+
+    /* Qlab Steppers */
+    .stepper {
+      display: inline-flex;
+      align-items: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .stepper button {
+      width: 32px;
+      height: 36px;
+      border: none;
+      background: transparent;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      font-family: var(--font-mono);
+    }
+
+    .stepper button:hover {
+      background: var(--surface3);
+      color: #fff;
+    }
+
+    .stepper input {
+      width: 65px;
+      border: none;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      height: 36px;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    .stepper input::-webkit-inner-spin-button,
+    .stepper input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+    }
+
+    .unit-tag {
+      font-size: 11px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text3);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+    }
+
+    /* Result Metric Cards */
+    .metric-card {
+      background: #12131c;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .metric-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .m-price::after {
+      background: linear-gradient(90deg, #7c6fff 0%, #a78bfa 50%, #c084fc 100%);
+    }
+
+    .m-profit::after {
+      background: linear-gradient(90deg, #10b981 0%, #34d399 50%, #6ee7b7 100%);
+    }
+
+    .m-margin::after {
+      background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 50%, #f97316 100%);
+    }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen flex text-sm">
+
+  <!-- SIDEBAR NAVIGATION (Desktop & Tablet) -->
+  <aside class="hidden md:flex w-64 border-r border-slate-800/80 bg-[#0d0d14] flex-col justify-between shrink-0 select-none">
+    <div>
+      <!-- Brand Header -->
+      <div class="h-16 flex items-center px-6 border-b border-slate-800/80 gap-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400 font-mono">
+          Q
+        </div>
+        <div>
+          <div class="font-bold text-white tracking-tight leading-tight">Qlab Studio</div>
+          <div class="text-[10px] text-slate-500 font-mono uppercase tracking-wider">3D Print Management</div>
+        </div>
+      </div>
+
+      <!-- Nav Links -->
+      <nav class="p-4 space-y-1">
+        <button onclick="switchTab('calc')" id="nav-calc" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg font-medium text-xs transition bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <i class="fa-solid fa-calculator w-4 text-center"></i>
+          <span>Создать заказ (Расчет)</span>
+        </button>
+        <button onclick="switchTab('filaments')" id="nav-filaments" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg font-medium text-xs transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-layer-group w-4 text-center"></i>
+            <span>Склад пластика</span>
+          </div>
+          <span id="badge-spools-count" class="px-2 py-0.5 text-[10px] font-mono font-bold rounded-full bg-slate-800 text-slate-400">0</span>
+        </button>
+        <button onclick="switchTab('orders')" id="nav-orders" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg font-medium text-xs transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-list-check w-4 text-center"></i>
+            <span>История заказов</span>
+          </div>
+          <span id="badge-orders-count" class="px-2 py-0.5 text-[10px] font-mono font-bold rounded-full bg-slate-800 text-slate-400">0</span>
+        </button>
+        <button onclick="switchTab('finance')" id="nav-finance" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg font-medium text-xs transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+          <i class="fa-solid fa-chart-line w-4 text-center"></i>
+          <span>Финансы</span>
+        </button>
+        <button onclick="switchTab('calendar')" id="nav-calendar" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg font-medium text-xs transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+          <i class="fa-regular fa-calendar-days w-4 text-center"></i>
+          <span>Календарь</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Bottom Tariffs & Multi-Device Sync -->
+    <div class="p-4 border-t border-slate-800/80 space-y-2">
+      <!-- Multi-device Sync Trigger -->
+      <button onclick="openSyncModal()" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[#141420] hover:bg-[#1a1a28] border border-slate-800 text-[11px] transition text-slate-300 group">
+        <span class="flex items-center gap-2">
+          <i class="fa-solid fa-cloud-arrow-up text-emerald-400 group-hover:scale-110 transition-transform"></i>
+          <span class="font-medium">Мульти-устройства</span>
+        </span>
+        <span id="sb-sync-status-badge" class="font-mono text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Оффлайн</span>
+      </button>
+
+      <div class="bg-[#12121a] p-3 rounded-lg border border-slate-800 text-[11px] space-y-1">
+        <div class="text-slate-500 font-mono uppercase text-[9px] font-semibold tracking-wider">Базовые тарифы продажи</div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Тариф за пластик:</span>
+          <span class="font-mono text-emerald-400" id="sb-client-mat">45 ₸/г</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Тариф за время:</span>
+          <span class="font-mono text-amber-400" id="sb-client-time">150 ₸/ч</span>
+        </div>
+      </div>
+      <button onclick="openSettingsModal()" class="w-full text-[11px] text-slate-400 hover:text-white py-1.5 flex items-center justify-center gap-1.5 transition">
+        <i class="fa-solid fa-sliders text-xs"></i> Настройки тарифов
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN VIEW CONTAINER -->
+  <main class="flex-1 flex flex-col h-screen overflow-y-auto bg-[#0a0a10]">
+    
+    <!-- Top Header -->
+    <header class="h-16 border-b border-slate-800/80 px-4 sm:px-8 flex items-center justify-between bg-[#0e0e16]/80 backdrop-blur sticky top-0 z-20">
+      <div class="flex items-center gap-3">
+        <div class="md:hidden w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400 font-mono text-xs">
+          Q
+        </div>
+        <h2 id="top-title" class="font-bold text-white text-sm sm:text-base tracking-tight truncate max-w-[170px] sm:max-w-none">Создание заказа и калькулятор</h2>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openSyncModal()" class="px-2.5 sm:px-3 py-1.5 bg-[#181824] hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-lg transition flex items-center gap-1.5 border border-slate-700" title="Онлайн синхронизация всех устройств">
+          <i class="fa-solid fa-cloud-arrow-up text-emerald-400"></i>
+          <span class="hidden sm:inline font-mono">Синхронизация</span>
+          <span id="header-sync-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+        </button>
+        <button onclick="resetCalculatorForm()" class="px-2.5 sm:px-3 py-1.5 bg-[#181824] hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-lg transition flex items-center gap-1.5 border border-slate-700">
+          <i class="fa-solid fa-rotate-right text-xs"></i> <span class="hidden sm:inline">Новый расчет</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="p-4 sm:p-8 max-w-6xl w-full mx-auto space-y-6 pb-24 md:pb-8">
+
+      <!-- ================= 1. TAB: CALCULATOR & ORDER CREATOR ================= -->
+      <section id="tab-calc" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left: Client Details + Qlab Inputs (6 cols) -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="bg-[#12121a] border border-slate-800/90 rounded-2xl p-6 space-y-5 shadow-lg">
+            
+            <!-- Block 1: Client & Order Details (Direct in Calculator) -->
+            <div class="border-b border-slate-800/80 pb-3 flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 font-mono">1. Данные клиента и заказа</span>
+              <span class="text-[10px] text-slate-500 font-mono">CRM Auto-Sync</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Имя клиента</label>
+                <input type="text" id="order-client-name" placeholder="Данияр" 
+                       class="w-full bg-[#181824] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Телефон / WhatsApp</label>
+                <input type="text" id="order-client-phone" placeholder="+7 777 000 00 00" 
+                       class="w-full bg-[#181824] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Срок сдачи (Дедлайн)</label>
+                <input type="date" id="order-deadline" 
+                       class="w-full bg-[#181824] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono">
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Статус заказа</label>
+                <select id="order-status" class="w-full bg-[#181824] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono">
+                  <option value="queue">В очереди</option>
+                  <option value="printing" selected>В печати</option>
+                  <option value="ready">Готов</option>
+                  <option value="completed">Выдан и оплачен</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Block 2: Print Parameters -->
+            <div class="border-b border-slate-800/80 pt-2 pb-3 flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">2. Параметры изделия и печати</span>
+              <span class="text-[10px] text-slate-500 font-mono">Qlab Formula</span>
+            </div>
+
+            <!-- Item Name -->
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Наименование модели / детали</label>
+              <input type="text" id="inp-title" value="Рельефная 3D-карта (15×15 см, 4 цвета)" 
+                     class="w-full bg-[#181824] border border-slate-700/80 rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <!-- Choose Spool from Warehouse -->
+            <div>
+              <label class="block text-xs text-slate-400 mb-1 flex justify-between">
+                <span>Катушка пластика со склада</span>
+                <span id="spool-status-badge" class="font-mono text-[11px]"></span>
+              </label>
+              <select id="inp-spool-select" onchange="onSpoolSelected()" class="w-full bg-[#181824] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono">
+                <!-- Injected via JS -->
+              </select>
+            </div>
+
+            <!-- Real-time Stock Availability Warning -->
+            <div id="spool-alert-box" class="p-3 rounded-lg border text-xs font-mono transition hidden">
+              <!-- Text injected via JS -->
+            </div>
+
+            <!-- Weight per single unit -->
+            <div class="flex items-center justify-between py-2 border-b border-slate-800/50">
+              <div>
+                <div class="font-medium text-white text-xs">Вес 1 штуки</div>
+                <div class="text-[11px] text-slate-500 font-mono">модель + поддержки + сбросы AMS</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="stepper">
+                  <button onclick="step('inp-w', -5)">−</button>
+                  <input type="number" id="inp-w" value="121" min="1" step="1" oninput="recalc()">
+                  <button onclick="step('inp-w', 5)">+</button>
+                </div>
+                <span class="unit-tag">г</span>
+              </div>
+            </div>
+
+            <!-- Time per single unit -->
+            <div class="flex items-center justify-between py-2 border-b border-slate-800/50">
+              <div>
+                <div class="font-medium text-white text-xs">Время печати 1 штуки</div>
+                <div class="text-[11px] text-slate-500 font-mono" id="time-display">= 3.75 ч</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="stepper">
+                  <button onclick="step('inp-th', -1)">−</button>
+                  <input type="number" id="inp-th" value="3" min="0" step="1" oninput="recalc()">
+                  <button onclick="step('inp-th', 1)">+</button>
+                </div>
+                <span class="unit-tag">ч</span>
+                <div class="stepper">
+                  <button onclick="stepTimeMinute(-5)">−</button>
+                  <input type="number" id="inp-tm" value="45" min="0" max="59" step="5" oninput="recalc()">
+                  <button onclick="stepTimeMinute(5)">+</button>
+                </div>
+                <span class="unit-tag">мин</span>
+              </div>
+            </div>
+
+            <!-- Copies (Quantity) -->
+            <div class="flex items-center justify-between py-2 border-b border-slate-800/50">
+              <div>
+                <div class="font-medium text-white text-xs">Количество копий (тираж)</div>
+                <div class="text-[11px] text-slate-500 font-mono">автоматический пересчет всех затрат</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="stepper">
+                  <button onclick="step('inp-qty', -1)">−</button>
+                  <input type="number" id="inp-qty" value="1" min="1" step="1" oninput="recalc()">
+                  <button onclick="step('inp-qty', 1)">+</button>
+                </div>
+                <span class="unit-tag">шт</span>
+              </div>
+            </div>
+
+            <!-- Modeling / CAD Service (Labor income) -->
+            <div class="flex items-center justify-between py-2">
+              <div>
+                <div class="font-medium text-white text-xs">Подготовка модели / 3D CAD</div>
+                <div class="text-[11px] text-slate-500 font-mono">доход за моделирование и обработку</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="stepper">
+                  <button onclick="step('inp-cad', -250)">−</button>
+                  <input type="number" id="inp-cad" value="1500" min="0" step="250" oninput="recalc()" style="width: 75px;">
+                  <button onclick="step('inp-cad', 250)">+</button>
+                </div>
+                <span class="unit-tag">₸</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right: RESULT CARDS (IMAGE 1) + FINANCIAL BREAKDOWN (6 cols) -->
+        <div class="lg:col-span-6 space-y-4">
+          
+          <!-- ================= RESULT METRICS BLOCK (IMAGE 1) ================= -->
+          <div class="space-y-2">
+            <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold px-1">
+              РЕЗУЛЬТАТ
+            </div>
+            
+            <div class="grid grid-cols-3 gap-3">
+              <!-- Metric 1: Цена клиенту -->
+              <div class="metric-card m-price">
+                <div class="text-[10px] text-slate-400 font-mono uppercase tracking-wider">ЦЕНА КЛИЕНТУ</div>
+                <div class="text-xl font-bold font-mono text-[#a78bfa] mt-1" id="kpi-card-price">
+                  7 500 ₸
+                </div>
+              </div>
+
+              <!-- Metric 2: Прибыль -->
+              <div class="metric-card m-profit">
+                <div class="text-[10px] text-slate-400 font-mono uppercase tracking-wider">ПРИБЫЛЬ</div>
+                <div class="text-xl font-bold font-mono text-emerald-400 mt-1" id="kpi-card-profit">
+                  6 205 ₸
+                </div>
+              </div>
+
+              <!-- Metric 3: Маржа -->
+              <div class="metric-card m-margin">
+                <div class="text-[10px] text-slate-400 font-mono uppercase tracking-wider">МАРЖА</div>
+                <div class="text-xl font-bold font-mono text-amber-400 mt-1" id="kpi-card-margin">
+                  83%
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= DETAILED FINANCIAL BREAKDOWN CARD ================= -->
+          <div class="bg-[#0f1118] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">
+            <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-bold flex justify-between items-center border-b border-slate-800/80 pb-3">
+              <span>ИТОГОВЫЙ ФИНАНСОВЫЙ РАСЧЕТ</span>
+              <span id="out-qty-badge" class="text-emerald-400 font-mono text-xs">1 шт</span>
+            </div>
+
+            <!-- Cost Breakdown Table (SCALES WITH QTY) -->
+            <div class="space-y-3 text-xs pt-1">
+              <div class="flex justify-between items-center text-slate-400">
+                <span>Пластик (<span id="out-weight-lbl">121</span> г):</span>
+                <span class="font-mono font-medium text-slate-200" id="out-cost-plastic">726 ₸</span>
+              </div>
+
+              <div class="flex justify-between items-center text-slate-400">
+                <span>Электроэнергия (<span id="out-kwh-lbl">0.41</span> кВт):</span>
+                <span class="font-mono font-medium text-slate-200" id="out-cost-power">12 ₸</span>
+              </div>
+
+              <div class="flex justify-between items-center text-slate-400">
+                <span>Амортизация принтера (<span id="out-hours-lbl">3.8</span> ч):</span>
+                <span class="font-mono font-medium text-slate-200" id="out-cost-deprec">450 ₸</span>
+              </div>
+
+              <div class="flex justify-between items-center text-slate-400">
+                <span>Риски и брак (10%):</span>
+                <span class="font-mono font-medium text-slate-200" id="out-cost-risk">119 ₸</span>
+              </div>
+
+              <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 font-bold">
+                <span class="text-slate-100">Себестоимость печати:</span>
+                <span class="font-mono text-amber-400" id="out-cost-print">1 307 ₸</span>
+              </div>
+
+              <div class="flex justify-between items-center text-slate-400">
+                <span>+ Работа за подготовку модели:</span>
+                <span class="font-mono text-slate-200" id="out-cost-cad">1 500 ₸</span>
+              </div>
+
+              <div id="out-per-unit-hint" class="text-[11px] text-slate-500 font-mono pt-1 hidden flex justify-between border-t border-slate-800/40">
+                <span>Цена за 1 шт:</span>
+                <span id="out-price-single" class="text-slate-300 font-bold">7 500 ₸</span>
+              </div>
+            </div>
+
+            <!-- Create Order Button (Direct to Database + Auto Reset for New Order) -->
+            <div class="space-y-2 pt-2">
+              <button onclick="saveOrderDirectFromCalc()" 
+                      class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950">
+                <i class="fa-solid fa-plus text-sm"></i>
+                <span>Создать заказ в базу данных</span>
+              </button>
+              <div class="text-[10px] text-center text-slate-500 font-mono">
+                Заказ сохранится в единую базу данных, а форма очистится для следующего клиента
+              </div>
+            </div>
+
+            <!-- Confirmation Toast Alert -->
+            <div id="order-success-toast" class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs font-mono hidden flex items-center justify-between">
+              <span id="toast-msg">Заказ успешно сохранен!</span>
+              <button onclick="switchTab('orders')" class="text-white underline text-[11px]">В историю →</button>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ================= 2. TAB: FILAMENT WAREHOUSE ================= -->
+      <section id="tab-filaments" class="space-y-5 hidden">
+        <div class="flex justify-between items-center bg-[#12121a] p-4 rounded-xl border border-slate-800">
+          <div>
+            <h3 class="text-sm font-bold text-white font-mono uppercase tracking-wider">Склад пластика и катушек</h3>
+            <p class="text-xs text-slate-400">Учет катушек, автоматический расчет остатков и проверка перед печатью</p>
+          </div>
+          <button onclick="openSpoolModal()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-lg transition flex items-center gap-2">
+            <i class="fa-solid fa-plus text-xs"></i> Добавить катушку
+          </button>
+        </div>
+
+        <!-- Spool Cards Grid -->
+        <div id="spool-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Injected via JS -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="spool-empty-state" class="bg-[#12121a] border border-slate-800 rounded-xl p-12 text-center text-slate-500 space-y-3 hidden">
+          <i class="fa-solid fa-layer-group text-3xl text-slate-600"></i>
+          <div class="text-xs font-medium text-slate-400">На складе пока нет катушек</div>
+          <div class="text-[11px] text-slate-600">Нажмите «Добавить катушку», чтобы вести точный учет остатков пластика</div>
+        </div>
+      </section>
+
+      <!-- ================= 3. TAB: ORDERS HISTORY (CLEAN SLATE) ================= -->
+      <section id="tab-orders" class="space-y-4 hidden">
+        <!-- Filter bar -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#12121a] p-4 rounded-xl border border-slate-800">
+          <div class="flex flex-wrap gap-1.5" id="filter-container">
+            <button onclick="setFilter('all')" class="filter-btn px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" data-f="all">Все (<span id="fc-all">0</span>)</button>
+            <button onclick="setFilter('printing')" class="filter-btn px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-slate-800/60 text-slate-400 hover:text-white" data-f="printing">В печати (<span id="fc-printing">0</span>)</button>
+            <button onclick="setFilter('queue')" class="filter-btn px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-slate-800/60 text-slate-400 hover:text-white" data-f="queue">В очереди (<span id="fc-queue">0</span>)</button>
+            <button onclick="setFilter('ready')" class="filter-btn px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-slate-800/60 text-slate-400 hover:text-white" data-f="ready">Готовы (<span id="fc-ready">0</span>)</button>
+            <button onclick="setFilter('completed')" class="filter-btn px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-slate-800/60 text-slate-400 hover:text-white" data-f="completed">Выданы (<span id="fc-completed">0</span>)</button>
+          </div>
+
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative flex-1 sm:w-60">
+              <input type="text" id="order-search-inp" placeholder="Поиск по клиенту / модели..." oninput="renderOrders()"
+                     class="w-full bg-[#181824] border border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+              <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-500 text-xs"></i>
+            </div>
+            <button onclick="exportCSV()" class="px-3 py-1.5 bg-[#181824] hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono border border-slate-700 transition" title="Экспорт CSV">
+              <i class="fa-solid fa-file-csv mr-1"></i> CSV
+            </button>
+            <button onclick="backupJSON()" class="px-3 py-1.5 bg-[#181824] hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono border border-slate-700 transition" title="Бэкап базы в JSON">
+              <i class="fa-solid fa-database mr-1"></i> Бэкап
+            </button>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-[#12121a] border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-[#0b0b12] border-b border-slate-800 text-slate-400 font-mono uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th class="p-3.5">Заказ / Срок</th>
+                  <th class="p-3.5">Клиент / Контакт</th>
+                  <th class="p-3.5">Изделие</th>
+                  <th class="p-3.5">Вес</th>
+                  <th class="p-3.5 text-right">Затраты (траты)</th>
+                  <th class="p-3.5 text-right">Цена</th>
+                  <th class="p-3.5 text-right">Прибыль</th>
+                  <th class="p-3.5 text-center">Статус</th>
+                  <th class="p-3.5 text-center">Действие</th>
+                </tr>
+              </thead>
+              <tbody id="orders-tbody" class="divide-y divide-slate-800/50 font-mono">
+                <!-- Rows injected here -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty State -->
+          <div id="orders-empty-state" class="py-16 text-center text-slate-500 space-y-2">
+            <i class="fa-solid fa-folder-open text-3xl text-slate-600"></i>
+            <div class="text-xs font-medium text-slate-400">Список заказов пуст</div>
+            <div class="text-[11px] text-slate-600">Заполните поля в калькуляторе и нажмите «Создать заказ в базу данных»</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 4. TAB: FINANCE ================= -->
+      <section id="tab-finance" class="space-y-6 hidden">
+        <!-- KPI Metrics -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="bg-[#12121a] border border-slate-800 p-4 rounded-xl space-y-1">
+            <div class="text-[10px] text-slate-500 font-mono uppercase">Выручка</div>
+            <div class="text-lg font-bold font-mono text-white" id="kpi-rev">0 ₸</div>
+            <div class="text-[10px] text-emerald-400">Оплачено</div>
+          </div>
+          <div class="bg-[#12121a] border border-slate-800 p-4 rounded-xl space-y-1">
+            <div class="text-[10px] text-slate-500 font-mono uppercase">Чистая прибыль</div>
+            <div class="text-lg font-bold font-mono text-emerald-400" id="kpi-profit">0 ₸</div>
+            <div class="text-[10px] text-slate-400">Рентабельность: <span id="kpi-margin" class="font-mono">0%</span></div>
+          </div>
+          <div class="bg-[#12121a] border border-slate-800 p-4 rounded-xl space-y-1">
+            <div class="text-[10px] text-slate-500 font-mono uppercase">Прямые траты</div>
+            <div class="text-lg font-bold font-mono text-amber-400" id="kpi-costs">0 ₸</div>
+            <div class="text-[10px] text-slate-500">Пластик + свет + аморт.</div>
+          </div>
+          <div class="bg-[#12121a] border border-slate-800 p-4 rounded-xl space-y-1">
+            <div class="text-[10px] text-slate-500 font-mono uppercase">Средний чек</div>
+            <div class="text-lg font-bold font-mono text-slate-200" id="kpi-avg">0 ₸</div>
+            <div class="text-[10px] text-slate-500">На 1 заказ</div>
+          </div>
+          <div class="bg-[#12121a] border border-slate-800 p-4 rounded-xl space-y-1">
+            <div class="text-[10px] text-slate-500 font-mono uppercase">Пластик</div>
+            <div class="text-lg font-bold font-mono text-cyan-400" id="kpi-plastic">0.00 кг</div>
+            <div class="text-[10px] text-slate-500">Суммарный расход</div>
+          </div>
+          <div class="bg-[#12121a] border border-slate-800 p-4 rounded-xl space-y-1">
+            <div class="text-[10px] text-slate-500 font-mono uppercase">Всего заказов</div>
+            <div class="text-lg font-bold font-mono text-slate-100" id="kpi-count">0</div>
+            <div class="text-[10px] text-slate-500">В базе</div>
+          </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-8 bg-[#12121a] border border-slate-800 p-5 rounded-xl space-y-3">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+              Выручка и чистая прибыль по заказам
+            </div>
+            <div class="h-64 flex items-center justify-center">
+              <canvas id="finance-chart"></canvas>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4 bg-[#12121a] border border-slate-800 p-5 rounded-xl space-y-3">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+              Структура прямых затрат (траты)
+            </div>
+            <div class="h-64 flex items-center justify-center">
+              <canvas id="cost-doughnut"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 5. TAB: CALENDAR ================= -->
+      <section id="tab-calendar" class="space-y-4 hidden">
+        <div class="flex items-center justify-between bg-[#12121a] p-4 rounded-xl border border-slate-800">
+          <div class="flex items-center gap-3">
+            <h3 id="cal-title" class="text-sm font-bold text-white font-mono uppercase tracking-wider">Ноябрь 2026</h3>
+            <button onclick="calGoToday()" class="px-2.5 py-1 text-[11px] font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Сегодня</button>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="calPrev()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+            <button onclick="calNext()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+          </div>
+        </div>
+
+        <div class="bg-[#12121a] border border-slate-800 rounded-xl p-4">
+          <div class="grid grid-cols-7 gap-2 mb-2 text-center text-[11px] font-mono font-semibold text-slate-500 uppercase">
+            <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div class="text-amber-500">Сб</div><div class="text-amber-500">Вс</div>
+          </div>
+          <div id="cal-grid" class="grid grid-cols-7 gap-2"></div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION (Smartphones) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0e0e16]/95 backdrop-blur border-t border-slate-800 flex justify-around items-center py-2 px-1">
+      <button onclick="switchTab('calc')" id="mob-calc" class="flex flex-col items-center gap-1 text-[10px] text-emerald-400 font-medium">
+        <i class="fa-solid fa-calculator text-base"></i>
+        <span>Расчет</span>
+      </button>
+      <button onclick="switchTab('filaments')" id="mob-filaments" class="flex flex-col items-center gap-1 text-[10px] text-slate-400 font-medium relative">
+        <i class="fa-solid fa-layer-group text-base"></i>
+        <span>Склад</span>
+        <span id="mob-badge-spools" class="absolute -top-1 -right-2 px-1 text-[9px] font-mono rounded-full bg-slate-800 text-slate-300">0</span>
+      </button>
+      <button onclick="switchTab('orders')" id="mob-orders" class="flex flex-col items-center gap-1 text-[10px] text-slate-400 font-medium relative">
+        <i class="fa-solid fa-list-check text-base"></i>
+        <span>Заказы</span>
+        <span id="mob-badge-orders" class="absolute -top-1 -right-2 px-1 text-[9px] font-mono rounded-full bg-slate-800 text-slate-300">0</span>
+      </button>
+      <button onclick="switchTab('finance')" id="mob-finance" class="flex flex-col items-center gap-1 text-[10px] text-slate-400 font-medium">
+        <i class="fa-solid fa-chart-line text-base"></i>
+        <span>Финансы</span>
+      </button>
+      <button onclick="switchTab('calendar')" id="mob-calendar" class="flex flex-col items-center gap-1 text-[10px] text-slate-400 font-medium">
+        <i class="fa-regular fa-calendar-days text-base"></i>
+        <span>Календарь</span>
+      </button>
+    </nav>
+  </main>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Modal: Add Spool / Reel to Warehouse -->
+  <div id="modal-spool" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#14141e] border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white">Добавить катушку пластика на склад</h3>
+        <button onclick="closeSpoolModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-base"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Бренд / Название катушки</label>
+          <input type="text" id="spool-brand" placeholder="Bambu PLA Basic" value="Bambu PLA" 
+                 class="w-full bg-[#1b1b28] border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Тип пластика</label>
+            <select id="spool-type" class="w-full bg-[#1b1b28] border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+              <option value="PLA" selected>PLA</option>
+              <option value="PETG">PETG</option>
+              <option value="ABS">ABS</option>
+              <option value="TPU">TPU</option>
+              <option value="ASA">ASA</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Цвет катушки</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="spool-hex" value="#10b981" class="w-8 h-8 rounded border border-slate-700 bg-transparent cursor-pointer">
+              <input type="text" id="spool-color-name" placeholder="Зеленый" value="Зеленый" 
+                     class="flex-1 bg-[#1b1b28] border border-slate-700 rounded-lg px-2.5 py-1.5 text-white">
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Вес нетто катушки (г)</label>
+            <input type="number" id="spool-weight" value="1000" min="100" step="50" 
+                   class="w-full bg-[#1b1b28] border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Текущий остаток (г)</label>
+            <input type="number" id="spool-remaining" value="1000" min="0" step="50" 
+                   class="w-full bg-[#1b1b28] border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Цена за катушку (₸)</label>
+            <input type="number" id="spool-price" value="6000" step="500" 
+                   class="w-full bg-[#1b1b28] border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Количество таких катушек</label>
+            <input type="number" id="spool-count" value="1" min="1" step="1" 
+                   class="w-full bg-[#1b1b28] border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+        <button onclick="closeSpoolModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium">Отмена</button>
+        <button onclick="saveSpool()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Settings (INCLUDES CLIENT TARIFFS) -->
+  <div id="modal-settings" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#14141e] border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white">Настройки тарифов</h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-base"></i></button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <!-- Client Sales Rates -->
+        <div class="bg-[#181824] p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+          <div class="font-mono text-[10px] uppercase text-emerald-400 font-bold tracking-wider">
+            ТАРИФЫ ПРОДАЖИ КЛИЕНТУ
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Тариф за пластик:</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="cfg-rate-mat" value="45" min="5" step="1" 
+                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+                <span class="text-slate-400 font-mono text-[11px]">₸/г</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Тариф за время:</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="cfg-rate-time" value="150" min="10" step="10" 
+                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+                <span class="text-slate-400 font-mono text-[11px]">₸/час</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Internal Cost Rates -->
+        <div class="bg-[#181824] p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+          <div class="font-mono text-[10px] uppercase text-slate-400 font-bold tracking-wider">
+            СЕБЕСТОИМОСТЬ И ЗАТРАТЫ
+          </div>
+          <div class="space-y-2">
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Цена пластика закупки (₸ за 1 кг):</label>
+              <input type="number" id="cfg-plastic" value="6000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Электроэнергия (₸ за 1 кВт·ч):</label>
+              <input type="number" id="cfg-power" value="30.15" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Амортизация принтера (₸ за 1 час печати):</label>
+              <input type="number" id="cfg-deprec" value="120" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Мощность принтера при печати (Вт):</label>
+              <input type="number" id="cfg-watts" value="110" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center pt-3 border-t border-slate-800">
+        <button onclick="clearAllData()" class="text-xs text-rose-400 hover:text-rose-300">Очистить базу</button>
+        <button onclick="saveSettings()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Cloud & Multi-Device Sync -->
+  <div id="modal-sync" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#14141e] border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <i class="fa-solid fa-cloud-arrow-up text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Синхронизация устройств</h3>
+            <p class="text-[10px] text-slate-500 font-mono">ПК · Ноутбук · Телефон · Планшет</p>
+          </div>
+        </div>
+        <button onclick="closeSyncModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-base"></i></button>
+      </div>
+
+      <!-- Sync Status Banner -->
+      <div id="sync-banner-card" class="p-3 rounded-xl border flex items-center justify-between bg-[#181824] border-slate-800 text-xs">
+        <div class="flex items-center gap-3">
+          <span id="sync-indicator-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+          <div>
+            <div id="sync-status-title" class="font-bold text-white">Режим: Локальная база (IndexedDB)</div>
+            <div id="sync-status-desc" class="text-[11px] text-slate-400">Данные сохраняются на этом устройстве. Подключите облако или сервер для единой базы.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs inside Modal -->
+      <div class="flex border-b border-slate-800 text-xs font-medium">
+        <button onclick="switchSyncTab('qr')" id="btn-sync-tab-qr" class="px-3 py-2 border-b-2 border-emerald-500 text-emerald-400 font-mono">
+          <i class="fa-solid fa-qrcode mr-1.5"></i> Телефон / QR
+        </button>
+        <button onclick="switchSyncTab('firebase')" id="btn-sync-tab-firebase" class="px-3 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-mono">
+          <i class="fa-solid fa-fire mr-1.5"></i> Облако Firebase
+        </button>
+        <button onclick="switchSyncTab('local')" id="btn-sync-tab-local" class="px-3 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-mono">
+          <i class="fa-solid fa-wifi mr-1.5"></i> Wi-Fi Сервер
+        </button>
+        <button onclick="switchSyncTab('deploy')" id="btn-sync-tab-deploy" class="px-3 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-mono">
+          <i class="fa-solid fa-globe mr-1.5"></i> 24/7 Онлайн
+        </button>
+      </div>
+
+      <!-- Tab Content 1: QR & Mobile Link -->
+      <div id="sync-tab-qr" class="space-y-4">
+        <div class="text-xs text-slate-300">
+          Отсканируйте QR-код камерой любого смартфона или планшета, чтобы открыть систему с единой базой данных:
+        </div>
+        
+        <div class="flex flex-col sm:flex-row items-center gap-4 bg-[#101018] p-4 rounded-xl border border-slate-800">
+          <div id="qrcode-box" class="bg-white p-2 rounded-lg shadow shrink-0 flex items-center justify-center min-w-[130px] min-h-[130px]">
+            <!-- Injected by QRCode.js -->
+          </div>
+          <div class="space-y-2 text-xs w-full">
+            <div class="text-slate-400 text-[11px]">Прямая ссылка для смартфона/планшета:</div>
+            <div class="flex items-center gap-2">
+              <input type="text" id="mobile-sync-link-inp" readonly 
+                     class="w-full bg-[#181824] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-mono">
+              <button onclick="copyMobileSyncLink()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shrink-0">
+                <i class="fa-solid fa-copy mr-1"></i> Копировать
+              </button>
+            </div>
+            <div id="copy-success-hint" class="text-[11px] text-emerald-400 font-mono hidden">
+              Ссылка скопирована! Отправьте её себе в WhatsApp или Telegram и откройте на телефоне.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Firebase Setup -->
+      <div id="sync-tab-firebase" class="space-y-3 hidden">
+        <div class="text-xs text-slate-300 leading-relaxed">
+          <b class="text-white">Google Firebase</b> обеспечивает моментальную синхронизацию за 0.1 секунды между любым количеством телефонов, ноутбуков и планшетов из любой точки мира. Бесплатно навсегда.
+        </div>
+
+        <div class="bg-[#181824] p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+          <label class="block text-slate-300 font-medium">Конфигурация Firebase (или Project ID):</label>
+          <textarea id="firebase-cfg-inp" rows="4" placeholder='Вставьте сюда firebaseConfig из Google Firebase Console, например:
+{
+  apiKey: "AIzaSy...",
+  authDomain: "qlab-studio.firebaseapp.com",
+  projectId: "qlab-studio"
+}' class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-emerald-500"></textarea>
+          <div class="flex justify-between items-center pt-1">
+            <span class="text-[10px] text-slate-500 font-mono">Сохраняется локально в браузере</span>
+            <button onclick="connectFirebase()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold">
+              <i class="fa-solid fa-bolt mr-1"></i> Подключить облако
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-[#101018] p-3 rounded-xl border border-slate-800/80 text-[11px] space-y-1 text-slate-400">
+          <div class="font-bold text-white text-xs">Как включить за 1 минуту:</div>
+          <div>1. Откройте <a href="https://console.firebase.google.com" target="_blank" class="text-emerald-400 underline">console.firebase.google.com</a>.</div>
+          <div>2. Создайте проект (например <code>qlab-studio</code>).</div>
+          <div>3. Включите <b>Firestore Database</b> (тестовый режим).</div>
+          <div>4. В настройках проекта (⚙️) скопируйте <code>firebaseConfig</code> и вставьте в поле выше.</div>
+        </div>
+      </div>
+
+      <!-- Tab Content 3: Wi-Fi Local Server -->
+      <div id="sync-tab-local" class="space-y-3 hidden text-xs">
+        <div class="text-slate-300 leading-relaxed">
+          Если ваши телефон, ноутбук и планшет подключены к одному Wi-Fi мастерской, вы можете работать сразу без облаков:
+        </div>
+        <div class="bg-[#181824] p-3.5 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-white text-xs flex items-center gap-2">
+            <i class="fa-solid fa-server text-emerald-400"></i> Автономный Wi-Fi сервер Qlab Studio
+          </div>
+          <p class="text-slate-400 text-[11px]">
+            На вашем рабочем столе создан файл: <code class="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded font-mono">Запустить Qlab Studio.bat</code>.
+          </p>
+          <div class="text-slate-300 text-[11px] space-y-1 bg-[#101018] p-2.5 rounded-lg border border-slate-800 font-mono">
+            <div>Адрес для телефона / планшета в локальной сети:</div>
+            <div class="text-emerald-400 font-bold text-xs" id="local-server-ip-hint">http://192.168.10.3:3000</div>
+          </div>
+          <p class="text-[11px] text-slate-500">
+            Дважды кликните по файлу — сервер запустится, и любой телефон в вашей сети сможет работать с единой базой.
+          </p>
+        </div>
+      </div>
+
+      <!-- Tab Content 4: Deploy 24/7 Online -->
+      <div id="sync-tab-deploy" class="space-y-3 hidden text-xs">
+        <div class="text-slate-300 leading-relaxed">
+          Чтобы сайт был доступен 24/7 в интернете по постоянной ссылке (например <code>https://qlab-studio.netlify.app</code>) даже когда ноутбук выключен:
+        </div>
+        <div class="bg-[#181824] p-3.5 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-white text-xs">Способ: Бесплатный Netlify Drop (10 секунд)</div>
+          <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px]">
+            <li>Откройте сайт: <a href="https://app.netlify.com/drop" target="_blank" class="text-emerald-400 underline">app.netlify.com/drop</a></li>
+            <li>Перетащите мышкой файл <code class="text-white">qlab_calc.html</code> в окно браузера.</li>
+            <li>Мгновенно получаете постоянный бесплатный HTTPS-адрес для работы отовсюду!</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-3 border-t border-slate-800">
+        <button onclick="closeSyncModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= REAL PERSISTENT DATABASE ENGINE (INDEXEDDB + LOCALSTORAGE) ================= -->
+  <script>
+    const DB_NAME = 'QlabStudioRealDB';
+    const DB_VERSION = 1;
+    let idb = null;
+
+    // In-memory runtime state
+    let orders = [];
+    let spools = [];
+    let settings = {
+      plastic: 6000,
+      power: 30.15,
+      deprec: 120,
+      watts: 110,
+      rateMat: 45,
+      rateTime: 150
+    };
+
+    let activeFilter = 'all';
+    let calDate = new Date();
+    let chartFinance = null;
+    let chartDoughnut = null;
+
+    // ================= MULTI-DEVICE & CLOUD REAL-TIME ENGINE =================
+    let syncMode = 'offline'; // 'offline' | 'firebase' | 'local_server'
+    let firebaseConfig = null;
+    let firebaseApp = null;
+    let firestoreDb = null;
+    let studioDocRef = null;
+    let isLocalServerActive = false;
+    let isRemoteUpdate = false;
+    let lastLocalTimestamp = 0;
+    const LOCAL_DEFAULT_IP = '192.168.10.3';
+
+    // Parse URL hash for instant mobile config transfer (e.g. from QR scan)
+    function checkUrlForCloudConfig() {
+      if (window.location.hash && window.location.hash.startsWith('#cloud=')) {
+        try {
+          const raw = decodeURIComponent(window.location.hash.replace('#cloud=', ''));
+          const cfg = JSON.parse(raw);
+          if (cfg && cfg.apiKey) {
+            localStorage.setItem('qlab_firebase_config', JSON.stringify(cfg));
+            firebaseConfig = cfg;
+            history.replaceState(null, null, window.location.pathname);
+            console.log('[Cloud] Firebase-конфиг успешно получен через QR/ссылку!');
+          }
+        } catch(e) {
+          console.error('[Cloud] Ошибка разбора хэша конфигурации:', e);
+        }
+      }
+    }
+
+    // Set UI Sync indicators in header and sidebar
+    function setSyncStatus(mode, desc) {
+      syncMode = mode;
+      
+      const sbBadge = document.getElementById('sb-sync-status-badge');
+      const headerDot = document.getElementById('header-sync-dot');
+      const bannerDot = document.getElementById('sync-indicator-dot');
+      const bannerTitle = document.getElementById('sync-status-title');
+      const bannerDesc = document.getElementById('sync-status-desc');
+
+      if (mode === 'firebase') {
+        if (sbBadge) {
+          sbBadge.innerText = 'Облако Онлайн';
+          sbBadge.className = 'font-mono text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold';
+        }
+        if (headerDot) headerDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        if (bannerDot) bannerDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+        if (bannerTitle) bannerTitle.innerText = 'Режим: Онлайн Облако (Firebase)';
+        if (bannerDesc) bannerDesc.innerText = desc || 'Синхронизация активна. Все устройства (ПК, телефон, планшет) обновляются в реальном времени.';
+      } else if (mode === 'local_server') {
+        if (sbBadge) {
+          sbBadge.innerText = 'Wi-Fi Сервер';
+          sbBadge.className = 'font-mono text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-bold';
+        }
+        if (headerDot) headerDot.className = 'w-2 h-2 rounded-full bg-cyan-400 animate-pulse';
+        if (bannerDot) bannerDot.className = 'w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse';
+        if (bannerTitle) bannerTitle.innerText = 'Режим: Wi-Fi Сервер Мастерской';
+        if (bannerDesc) bannerDesc.innerText = desc || 'Синхронизировано с локальным сервером по Wi-Fi.';
+      } else {
+        if (sbBadge) {
+          sbBadge.innerText = 'Оффлайн';
+          sbBadge.className = 'font-mono text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20';
+        }
+        if (headerDot) headerDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        if (bannerDot) bannerDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
+        if (bannerTitle) bannerTitle.innerText = 'Режим: Локальная база (IndexedDB)';
+        if (bannerDesc) bannerDesc.innerText = 'Данные сохраняются на этом устройстве. Подключите облако или Wi-Fi сервер для единой базы.';
+      }
+    }
+
+    // Broadcast changes from this device to Cloud or Local Server
+    function broadcastCloudSync() {
+      if (isRemoteUpdate) return;
+      lastLocalTimestamp = Date.now();
+      syncToLocalStorage();
+
+      // 1. Firebase push
+      if (studioDocRef) {
+        studioDocRef.set({
+          orders: orders,
+          spools: spools,
+          settings: settings,
+          updatedAt: lastLocalTimestamp
+        }, { merge: true }).catch(err => console.error('[Firebase Push Error]', err));
+      }
+
+      // 2. Local Server push
+      if (isLocalServerActive) {
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orders: orders,
+            spools: spools,
+            settings: settings,
+            updatedAt: lastLocalTimestamp
+          })
+        }).catch(err => console.error('[Local Server Push Error]', err));
+      }
+    }
+
+    // Initialize Firebase Sync
+    function initFirebaseSync() {
+      if (!firebaseConfig) {
+        const saved = localStorage.getItem('qlab_firebase_config');
+        if (saved) {
+          try { firebaseConfig = JSON.parse(saved); } catch(e) {}
+        }
+      }
+
+      if (!firebaseConfig || typeof firebase === 'undefined') return;
+
+      try {
+        if (!firebase.apps.length) {
+          firebaseApp = firebase.initializeApp(firebaseConfig);
+        } else {
+          firebaseApp = firebase.app();
+        }
+
+        if (firebase.firestore) {
+          firestoreDb = firebase.firestore();
+          const studioId = firebaseConfig.projectId || 'qlab_studio_default';
+          studioDocRef = firestoreDb.collection('qlab_studios').doc(studioId);
+
+          // Real-time listener for multi-device sync
+          studioDocRef.onSnapshot(doc => {
+            if (doc.exists) {
+              const data = doc.data();
+              if (data && data.updatedAt && data.updatedAt !== lastLocalTimestamp) {
+                isRemoteUpdate = true;
+                if (Array.isArray(data.orders)) orders = data.orders;
+                if (Array.isArray(data.spools)) spools = data.spools;
+                if (data.settings) settings = Object.assign(settings, data.settings);
+
+                syncToLocalStorage();
+                if (idb) {
+                  const tx = idb.transaction(['orders', 'spools', 'settings'], 'readwrite');
+                  const oStore = tx.objectStore('orders');
+                  const sStore = tx.objectStore('spools');
+                  oStore.clear();
+                  sStore.clear();
+                  orders.forEach(o => oStore.put(o));
+                  spools.forEach(s => sStore.put(s));
+                  tx.objectStore('settings').put({ key: 'main', value: settings });
+                }
+
+                renderOrders();
+                renderSpools();
+                updateSpoolSelect();
+                recalc();
+                updateBadge();
+                isRemoteUpdate = false;
+              }
+            } else {
+              // Initial cloud seed
+              broadcastCloudSync();
+            }
+          }, err => {
+            console.warn('[Firebase Snapshot Notice]', err);
+          });
+
+          setSyncStatus('firebase');
+        }
+      } catch (err) {
+        console.error('[Firebase Init Error]', err);
+      }
+    }
+
+    // Connect to Local Studio Server if running
+    function checkLocalServerSync() {
+      if (window.location.protocol.startsWith('http')) {
+        fetch('/api/health')
+          .then(r => r.json())
+          .then(info => {
+            if (info && info.status === 'ok') {
+              isLocalServerActive = true;
+              if (info.localIp) {
+                const hint = document.getElementById('local-server-ip-hint');
+                if (hint) hint.innerText = `http://${info.localIp}:3000`;
+              }
+
+              // Fetch initial server data
+              fetch('/api/data')
+                .then(r => r.json())
+                .then(res => {
+                  if (res && res.orders && (res.orders.length > 0 || res.spools.length > 0)) {
+                    orders = res.orders || orders;
+                    spools = res.spools || spools;
+                    if (res.settings) settings = Object.assign(settings, res.settings);
+                    syncToLocalStorage();
+                    renderOrders();
+                    renderSpools();
+                    updateSpoolSelect();
+                    recalc();
+                    updateBadge();
+                  }
+                  if (syncMode !== 'firebase') {
+                    setSyncStatus('local_server');
+                  }
+                });
+
+              // Real-time Server-Sent Events (SSE) listener
+              if (window.EventSource) {
+                const sse = new EventSource('/api/events');
+                sse.onmessage = (e) => {
+                  try {
+                    const incoming = JSON.parse(e.data);
+                    if (incoming && incoming.updatedAt && incoming.updatedAt !== lastLocalTimestamp) {
+                      isRemoteUpdate = true;
+                      if (Array.isArray(incoming.orders)) orders = incoming.orders;
+                      if (Array.isArray(incoming.spools)) spools = incoming.spools;
+                      if (incoming.settings) settings = Object.assign(settings, incoming.settings);
+
+                      syncToLocalStorage();
+                      renderOrders();
+                      renderSpools();
+                      updateSpoolSelect();
+                      recalc();
+                      updateBadge();
+                      isRemoteUpdate = false;
+                    }
+                  } catch(err) {}
+                };
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    }
+
+    // Modal UI controllers
+    function openSyncModal() {
+      updateSyncModalUI();
+      document.getElementById('modal-sync').classList.remove('hidden');
+      renderSyncQRCode();
+    }
+
+    function closeSyncModal() {
+      document.getElementById('modal-sync').classList.add('hidden');
+    }
+
+    function switchSyncTab(tab) {
+      ['qr', 'firebase', 'local', 'deploy'].forEach(t => {
+        const el = document.getElementById('sync-tab-' + t);
+        const btn = document.getElementById('btn-sync-tab-' + t);
+        if (el) el.classList.toggle('hidden', t !== tab);
+        if (btn) {
+          if (t === tab) {
+            btn.className = 'px-3 py-2 border-b-2 border-emerald-500 text-emerald-400 font-mono';
+          } else {
+            btn.className = 'px-3 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-mono';
+          }
+        }
+      });
+      if (tab === 'qr') renderSyncQRCode();
+    }
+
+    function updateSyncModalUI() {
+      const cfgInp = document.getElementById('firebase-cfg-inp');
+      if (cfgInp && firebaseConfig) {
+        cfgInp.value = JSON.stringify(firebaseConfig, null, 2);
+      }
+    }
+
+    function renderSyncQRCode() {
+      const qrBox = document.getElementById('qrcode-box');
+      if (!qrBox) return;
+      qrBox.innerHTML = '';
+
+      let link = window.location.href.split('#')[0];
+      if (link.startsWith('file://')) {
+        link = `http://${LOCAL_DEFAULT_IP}:3000`;
+      }
+
+      if (firebaseConfig) {
+        try {
+          const cfgStr = encodeURIComponent(JSON.stringify(firebaseConfig));
+          link = `${link}#cloud=${cfgStr}`;
+        } catch(e) {}
+      }
+
+      const inp = document.getElementById('mobile-sync-link-inp');
+      if (inp) inp.value = link;
+
+      try {
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(qrBox, {
+            text: link,
+            width: 130,
+            height: 130,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        }
+      } catch(err) {
+        qrBox.innerHTML = '<div class="text-[10px] text-slate-500 font-mono text-center">QR недоступен</div>';
+      }
+    }
+
+    function copyMobileSyncLink() {
+      const inp = document.getElementById('mobile-sync-link-inp');
+      if (!inp) return;
+      inp.select();
+      inp.setSelectionRange(0, 99999);
+      navigator.clipboard.writeText(inp.value).then(() => {
+        const hint = document.getElementById('copy-success-hint');
+        if (hint) {
+          hint.classList.remove('hidden');
+          setTimeout(() => hint.classList.add('hidden'), 5000);
+        }
+      });
+    }
+
+    function connectFirebase() {
+      const val = document.getElementById('firebase-cfg-inp').value.trim();
+      if (!val) {
+        alert('Пожалуйста, вставьте конфигурацию Firebase!');
+        return;
+      }
+
+      let parsed = null;
+      try {
+        parsed = JSON.parse(val);
+      } catch(e) {
+        try {
+          const fn = new Function('return ' + val + ';');
+          parsed = fn();
+        } catch(e2) {
+          alert('Ошибка синтаксиса конфигурации. Проверьте правильность скобок.');
+          return;
+        }
+      }
+
+      if (!parsed || !parsed.apiKey) {
+        alert('В конфигурации отсутствует обязательный параметр apiKey.');
+        return;
+      }
+
+      localStorage.setItem('qlab_firebase_config', JSON.stringify(parsed));
+      firebaseConfig = parsed;
+      initFirebaseSync();
+      alert('Облако Firebase успешно подключено! Все устройства синхронизируются в реальном времени.');
+      updateSyncModalUI();
+      renderSyncQRCode();
+    }
+
+    // Initialize Real Browser IndexedDB Database
+    function openDatabase() {
+      return new Promise((resolve) => {
+        if (!window.indexedDB) {
+          console.warn('IndexedDB not supported, falling back to LocalStorage');
+          loadFromLocalStorage();
+          resolve();
+          return;
+        }
+
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('orders')) {
+            db.createObjectStore('orders', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('spools')) {
+            db.createObjectStore('spools', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('settings')) {
+            db.createObjectStore('settings', { keyPath: 'key' });
+          }
+        };
+
+        req.onsuccess = (e) => {
+          idb = e.target.result;
+          const statusEl = document.getElementById('db-status-text');
+          if (statusEl) statusEl.innerText = 'Подключена';
+          loadAllFromIndexedDB().then(resolve);
+        };
+
+        req.onerror = (e) => {
+          console.error('IndexedDB open error:', e);
+          loadFromLocalStorage();
+          resolve();
+        };
+      });
+    }
+
+    function loadFromLocalStorage() {
+      orders = JSON.parse(localStorage.getItem('qlab_real_orders')) || [];
+      spools = JSON.parse(localStorage.getItem('qlab_real_spools')) || [];
+      const s = JSON.parse(localStorage.getItem('qlab_real_settings'));
+      if (s) settings = Object.assign(settings, s);
+    }
+
+    function syncToLocalStorage() {
+      localStorage.setItem('qlab_real_orders', JSON.stringify(orders));
+      localStorage.setItem('qlab_real_spools', JSON.stringify(spools));
+      localStorage.setItem('qlab_real_settings', JSON.stringify(settings));
+    }
+
+    function loadAllFromIndexedDB() {
+      return new Promise((resolve) => {
+        if (!idb) { loadFromLocalStorage(); resolve(); return; }
+
+        const tx = idb.transaction(['orders', 'spools', 'settings'], 'readonly');
+        const ordersReq = tx.objectStore('orders').getAll();
+        const spoolsReq = tx.objectStore('spools').getAll();
+        const settingsReq = tx.objectStore('settings').getAll();
+
+        tx.oncomplete = () => {
+          orders = ordersReq.result || [];
+          spools = spoolsReq.result || [];
+          if (settingsReq.result && settingsReq.result.length > 0) {
+            settingsReq.result.forEach(item => {
+              if (item.key === 'main') settings = Object.assign(settings, item.value);
+            });
+          } else {
+            const localS = JSON.parse(localStorage.getItem('qlab_real_settings'));
+            if (localS) settings = Object.assign(settings, localS);
+          }
+          syncToLocalStorage();
+          resolve();
+        };
+
+        tx.onerror = () => {
+          loadFromLocalStorage();
+          resolve();
+        };
+      });
+    }
+
+    // Persist Single Entity to Real DB & Broadcast to Cloud
+    function dbPutOrder(order) {
+      syncToLocalStorage();
+      if (idb) {
+        const tx = idb.transaction(['orders'], 'readwrite');
+        tx.objectStore('orders').put(order);
+      }
+      broadcastCloudSync();
+    }
+
+    function dbDeleteOrder(id) {
+      syncToLocalStorage();
+      if (idb) {
+        const tx = idb.transaction(['orders'], 'readwrite');
+        tx.objectStore('orders').delete(id);
+      }
+      broadcastCloudSync();
+    }
+
+    function dbSaveAllSpools() {
+      syncToLocalStorage();
+      if (idb) {
+        const tx = idb.transaction(['spools'], 'readwrite');
+        const store = tx.objectStore('spools');
+        store.clear();
+        spools.forEach(s => store.put(s));
+      }
+      broadcastCloudSync();
+    }
+
+    function dbSaveSettings() {
+      syncToLocalStorage();
+      if (idb) {
+        const tx = idb.transaction(['settings'], 'readwrite');
+        tx.objectStore('settings').put({ key: 'main', value: settings });
+      }
+      broadcastCloudSync();
+    }
+
+    // --- Tab Navigation ---
+    function switchTab(tabId) {
+      document.querySelectorAll('main > div > section').forEach(s => s.classList.add('hidden'));
+      document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-item').forEach(b => {
+        b.classList.remove('bg-emerald-500/10', 'text-emerald-400', 'border', 'border-emerald-500/20');
+        b.classList.add('text-slate-400');
+      });
+
+      const btn = document.getElementById('nav-' + tabId);
+      if (btn) {
+        btn.classList.add('bg-emerald-500/10', 'text-emerald-400', 'border', 'border-emerald-500/20');
+        btn.classList.remove('text-slate-400');
+      }
+
+      // Update mobile bottom bar active state
+      ['calc', 'filaments', 'orders', 'finance', 'calendar'].forEach(t => {
+        const mobBtn = document.getElementById('mob-' + t);
+        if (mobBtn) {
+          if (t === tabId) {
+            mobBtn.classList.add('text-emerald-400');
+            mobBtn.classList.remove('text-slate-400');
+          } else {
+            mobBtn.classList.remove('text-emerald-400');
+            mobBtn.classList.add('text-slate-400');
+          }
+        }
+      });
+
+      const titles = {
+        calc: 'Создание заказа и калькулятор',
+        filaments: 'Склад пластика и катушек',
+        orders: 'История заказов',
+        finance: 'Финансовая аналитика',
+        calendar: 'Производственный календарь'
+      };
+      document.getElementById('top-title').innerText = titles[tabId];
+
+      if (tabId === 'calc') updateSpoolSelect();
+      if (tabId === 'filaments') renderSpools();
+      if (tabId === 'orders') renderOrders();
+      if (tabId === 'finance') renderFinance();
+      if (tabId === 'calendar') renderCalendar();
+    }
+
+    // --- Steppers ---
+    function step(id, delta) {
+      const el = document.getElementById(id);
+      const val = parseFloat(el.value) || 0;
+      const min = parseFloat(el.min) || 0;
+      el.value = Math.max(min, val + delta);
+      recalc();
+    }
+
+    function stepTimeMinute(delta) {
+      const el = document.getElementById('inp-tm');
+      let val = (parseInt(el.value) || 0) + delta;
+      if (val >= 60) {
+        val = 0;
+        step('inp-th', 1);
+      } else if (val < 0) {
+        val = 55;
+        step('inp-th', -1);
+      }
+      el.value = val;
+      recalc();
+    }
+
+    // --- Spool Select in Calculator ---
+    function updateSpoolSelect() {
+      const select = document.getElementById('inp-spool-select');
+      if (!select) return;
+
+      if (spools.length === 0) {
+        select.innerHTML = '<option value="default">Базовый тариф (6 000 ₸/кг, без списания)</option>';
+      } else {
+        select.innerHTML = spools.map(s => `
+          <option value="${s.id}">
+            [${s.type}] ${s.brand} - ${s.colorName} (Остаток: ${s.remaining}г / ${s.weight}г) — ${s.price} ₸
+          </option>
+        `).join('') + '<option value="default">Базовый тариф (6 000 ₸/кг)</option>';
+      }
+      onSpoolSelected();
+    }
+
+    function onSpoolSelected() {
+      recalc();
+    }
+
+    // --- Calculation Engine (Matching Images 1 & 2) ---
+    function recalc() {
+      const weightSingle = parseFloat(document.getElementById('inp-w').value) || 0;
+      const hoursSingle = parseInt(document.getElementById('inp-th').value) || 0;
+      const minutesSingle = parseInt(document.getElementById('inp-tm').value) || 0;
+      const qty = parseInt(document.getElementById('inp-qty').value) || 1;
+      const cadFee = parseFloat(document.getElementById('inp-cad').value) || 0;
+
+      // Single item decimal hours
+      const tHoursSingle = hoursSingle + (minutesSingle / 60);
+      document.getElementById('time-display').innerText = '= ' + tHoursSingle.toFixed(2) + ' ч';
+
+      // TOTALS SCALED BY QTY:
+      const totalWeightG = weightSingle * qty;
+      const totalHours = tHoursSingle * qty;
+
+      // Selected Spool and Plastic Rate
+      const spoolSelect = document.getElementById('inp-spool-select');
+      const selectedSpoolId = spoolSelect ? spoolSelect.value : 'default';
+      const selectedSpool = spools.find(s => s.id === selectedSpoolId);
+
+      const plasticPriceKg = selectedSpool ? selectedSpool.price : settings.plastic;
+
+      // 1. Direct Physical Expenses (Траты):
+      const costPlastic = (totalWeightG / 1000) * plasticPriceKg;
+
+      const kw = settings.watts / 1000;
+      const totalKwh = totalHours * kw;
+      const costPower = totalKwh * settings.power;
+
+      const costDeprec = totalHours * settings.deprec;
+      const costRisk = (costPlastic + costPower + costDeprec) * 0.10;
+
+      // Прямая производственная себестоимость (траты):
+      const costPrintTotal = costPlastic + costPower + costDeprec + costRisk;
+
+      // 2. Client Price (Calculated via client rates: 45 ₸/g & 150 ₸/hr + CAD fee):
+      const rateMatG = settings.rateMat || 45;
+      const rateTimeH = settings.rateTime || 150;
+
+      const clientMatPart = totalWeightG * rateMatG;
+      const clientTimePart = totalHours * rateTimeH;
+      const rawPrice = clientMatPart + clientTimePart + cadFee;
+      
+      // Round price to nearest 50 ₸
+      const clientPrice = Math.max(500, Math.round(rawPrice / 50) * 50);
+
+      // 3. Profit Calculation:
+      const profit = clientPrice - costPrintTotal;
+      const marginPct = clientPrice > 0 ? Math.round((profit / clientPrice) * 100) : 0;
+
+      // --- Update Top Result Metrics Cards (Matching Image 1) ---
+      document.getElementById('kpi-card-price').innerText = clientPrice.toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('kpi-card-profit').innerText = Math.round(profit).toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('kpi-card-margin').innerText = marginPct + '%';
+
+      // --- Update Detailed Breakdown Panel (Scaling with Qty) ---
+      document.getElementById('out-qty-badge').innerText = qty + ' шт' + (qty > 1 ? ` (${weightSingle}г × ${qty})` : '');
+      document.getElementById('out-weight-lbl').innerText = Math.round(totalWeightG);
+      document.getElementById('out-kwh-lbl').innerText = totalKwh.toFixed(2);
+      document.getElementById('out-hours-lbl').innerText = totalHours.toFixed(1);
+
+      document.getElementById('out-cost-plastic').innerText = Math.round(costPlastic).toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('out-cost-power').innerText = Math.round(costPower).toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('out-cost-deprec').innerText = Math.round(costDeprec).toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('out-cost-risk').innerText = Math.round(costRisk).toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('out-cost-print').innerText = Math.round(costPrintTotal).toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('out-cost-cad').innerText = Math.round(cadFee).toLocaleString('ru-RU') + ' ₸';
+
+      const perUnitHint = document.getElementById('out-per-unit-hint');
+      if (qty > 1) {
+        perUnitHint.classList.remove('hidden');
+        document.getElementById('out-price-single').innerText = Math.round(clientPrice / qty).toLocaleString('ru-RU') + ' ₸';
+      } else {
+        perUnitHint.classList.add('hidden');
+      }
+
+      // --- Check Warehouse Stock Availability ---
+      const alertBox = document.getElementById('spool-alert-box');
+      if (selectedSpool) {
+        alertBox.classList.remove('hidden');
+        if (selectedSpool.remaining < totalWeightG) {
+          const shortage = totalWeightG - selectedSpool.remaining;
+          alertBox.className = 'p-3 rounded-lg border text-xs font-mono transition bg-rose-500/10 border-rose-500/30 text-rose-400';
+          alertBox.innerHTML = `
+            <div class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation"></i> Недостаточно пластика на катушке!</div>
+            <div class="mt-1 text-[11px] text-slate-300">На заказ требуется: <b>${Math.round(totalWeightG)} г</b>. В остатке: <b>${selectedSpool.remaining} г</b>.</div>
+            <div class="text-[11px] text-rose-300 mt-0.5">Не хватает: <b>${Math.round(shortage)} г</b>.</div>
+          `;
+        } else {
+          const remainingAfter = selectedSpool.remaining - totalWeightG;
+          alertBox.className = 'p-3 rounded-lg border text-xs font-mono transition bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
+          alertBox.innerHTML = `
+            <div class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Пластика достаточно для печати</div>
+            <div class="mt-1 text-[11px] text-slate-300">В остатке: <b>${selectedSpool.remaining} г</b>. Расход: <b>${Math.round(totalWeightG)} г</b>.</div>
+            <div class="text-[11px] text-emerald-300 mt-0.5">После печати останется: <b>${Math.round(remainingAfter)} г</b>.</div>
+          `;
+        }
+      } else {
+        alertBox.classList.add('hidden');
+      }
+
+      window._currentCalc = {
+        title: document.getElementById('inp-title').value || 'Изделие',
+        weight: Math.round(totalWeightG),
+        cost: Math.round(costPrintTotal),
+        price: clientPrice,
+        spoolId: selectedSpool ? selectedSpool.id : null
+      };
+    }
+
+    // --- DIRECT ORDER CREATION IN DATABASE (WITH CLEAN RESET FOR NEXT ORDER) ---
+    function saveOrderDirectFromCalc() {
+      const clientName = document.getElementById('order-client-name').value.trim() || 'Клиент';
+      const clientPhone = document.getElementById('order-client-phone').value.trim() || '—';
+      const deadline = document.getElementById('order-deadline').value || new Date().toISOString().split('T')[0];
+      const status = document.getElementById('order-status').value;
+
+      const calc = window._currentCalc;
+      if (!calc) {
+        recalc();
+      }
+
+      const newId = 'ORD-' + String(orders.length + 1).padStart(3, '0');
+      const newOrder = {
+        id: newId,
+        date: new Date().toISOString().split('T')[0],
+        deadline: deadline,
+        client: clientName,
+        phone: clientPhone,
+        item: calc.title,
+        weight: calc.weight,
+        cost: calc.cost,
+        price: calc.price,
+        status: status,
+        spoolId: calc.spoolId
+      };
+
+      // Deduct from spool in warehouse
+      if (calc.spoolId) {
+        const spool = spools.find(s => s.id === calc.spoolId);
+        if (spool) {
+          spool.remaining = Math.max(0, spool.remaining - calc.weight);
+          dbSaveAllSpools();
+          updateSpoolSelect();
+        }
+      }
+
+      // Save into DB
+      orders.unshift(newOrder);
+      dbPutOrder(newOrder);
+      updateBadge();
+
+      // Show Toast Notification
+      const toast = document.getElementById('order-success-toast');
+      document.getElementById('toast-msg').innerText = `Заказ ${newId} (${clientName}) успешно сохранен в базе!`;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 5000);
+
+      // RESET FORM FOR THE NEXT ORDER ("все выходило по новому")
+      resetCalculatorForm();
+    }
+
+    function resetCalculatorForm() {
+      document.getElementById('order-client-name').value = '';
+      document.getElementById('order-client-phone').value = '';
+      document.getElementById('inp-title').value = 'Новая 3D деталь';
+      document.getElementById('inp-w').value = '100';
+      document.getElementById('inp-th').value = '2';
+      document.getElementById('inp-tm').value = '30';
+      document.getElementById('inp-qty').value = '1';
+      document.getElementById('inp-cad').value = '1000';
+
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+      document.getElementById('order-deadline').value = tomorrow;
+      document.getElementById('order-status').value = 'queue';
+
+      recalc();
+    }
+
+    // --- FILAMENT SPOOLS WAREHOUSE ---
+    function openSpoolModal() {
+      document.getElementById('spool-brand').value = 'Bambu PLA';
+      document.getElementById('spool-type').value = 'PLA';
+      document.getElementById('spool-hex').value = '#10b981';
+      document.getElementById('spool-color-name').value = 'Зеленый';
+      document.getElementById('spool-weight').value = 1000;
+      document.getElementById('spool-remaining').value = 1000;
+      document.getElementById('spool-price').value = 6000;
+      document.getElementById('spool-count').value = 1;
+      document.getElementById('modal-spool').classList.remove('hidden');
+    }
+
+    function closeSpoolModal() {
+      document.getElementById('modal-spool').classList.add('hidden');
+    }
+
+    function saveSpool() {
+      const brand = document.getElementById('spool-brand').value.trim() || 'PLA Spool';
+      const type = document.getElementById('spool-type').value;
+      const hex = document.getElementById('spool-hex').value;
+      const colorName = document.getElementById('spool-color-name').value.trim() || 'Цвет';
+      const weight = parseInt(document.getElementById('spool-weight').value) || 1000;
+      const remaining = parseInt(document.getElementById('spool-remaining').value) || weight;
+      const price = parseInt(document.getElementById('spool-price').value) || 6000;
+      const count = parseInt(document.getElementById('spool-count').value) || 1;
+
+      for (let i = 0; i < count; i++) {
+        const id = 'SPOOL-' + String(spools.length + 1).padStart(2, '0');
+        spools.push({
+          id,
+          brand,
+          type,
+          hex,
+          colorName,
+          weight,
+          remaining,
+          price
+        });
+      }
+
+      dbSaveAllSpools();
+      closeSpoolModal();
+      renderSpools();
+      updateSpoolSelect();
+    }
+
+    function deleteSpool(id) {
+      if (confirm('Удалить катушку ' + id + '?')) {
+        spools = spools.filter(s => s.id !== id);
+        dbSaveAllSpools();
+        renderSpools();
+        updateSpoolSelect();
+      }
+    }
+
+    function editSpoolRemaining(id) {
+      const spool = spools.find(s => s.id === id);
+      if (!spool) return;
+      const newRemaining = prompt(`Текущий остаток для ${spool.brand} (${spool.colorName}):`, spool.remaining);
+      if (newRemaining !== null) {
+        spool.remaining = Math.max(0, parseInt(newRemaining) || 0);
+        dbSaveAllSpools();
+        renderSpools();
+        recalc();
+      }
+    }
+
+    function renderSpools() {
+      const grid = document.getElementById('spool-cards-grid');
+      const emptyState = document.getElementById('spool-empty-state');
+      updateBadge();
+
+      if (spools.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      grid.innerHTML = spools.map(s => {
+        const pct = Math.min(100, Math.round((s.remaining / s.weight) * 100));
+        const isLow = s.remaining < 200;
+
+        return `
+          <div class="bg-[#12121a] border border-slate-800 rounded-xl p-4 space-y-3 relative overflow-hidden">
+            <div class="flex justify-between items-start">
+              <div class="flex items-center gap-2.5">
+                <span class="w-4 h-4 rounded-full border border-slate-700 shrink-0" style="background-color: ${s.hex};"></span>
+                <div>
+                  <div class="font-bold text-white text-xs">${s.brand}</div>
+                  <div class="text-[10px] text-slate-400 font-mono">${s.type} · ${s.colorName}</div>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded ${isLow ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold' : 'bg-slate-800 text-slate-400'}">
+                ${isLow ? 'Мало пластика' : 'В наличии'}
+              </span>
+            </div>
+
+            <!-- Progress Bar -->
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1">
+                <span class="text-slate-400">Остаток:</span>
+                <span class="font-bold text-white">${s.remaining} г <span class="text-slate-500 font-normal">/ ${s.weight} г</span></span>
+              </div>
+              <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                <div class="h-full rounded-full transition-all" style="width: ${pct}%; background-color: ${isLow ? '#f43f5e' : (s.hex || '#10b981')};"></div>
+              </div>
+            </div>
+
+            <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-800/60 font-mono">
+              <span class="text-slate-500 text-[11px]">${s.price.toLocaleString('ru-RU')} ₸/катушка</span>
+              <div class="flex items-center gap-1.5">
+                <button onclick="editSpoolRemaining('${s.id}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition" title="Изменить граммовку">
+                  <i class="fa-solid fa-pen text-[10px] mr-1"></i> ${pct}%
+                </button>
+                <button onclick="deleteSpool('${s.id}')" class="w-7 h-7 bg-slate-800 hover:bg-rose-950/60 text-slate-500 hover:text-rose-400 rounded flex items-center justify-center transition" title="Удалить">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // --- Orders CRUD & Filtering ---
+    function updateStatus(id, newStatus) {
+      const ord = orders.find(o => o.id === id);
+      if (ord) {
+        ord.status = newStatus;
+        dbPutOrder(ord);
+        renderOrders();
+      }
+    }
+
+    function deleteOrder(id) {
+      if (confirm('Удалить заказ ' + id + '?')) {
+        orders = orders.filter(o => o.id !== id);
+        dbDeleteOrder(id);
+        renderOrders();
+        updateBadge();
+      }
+    }
+
+    function updateBadge() {
+      const activeCount = orders.filter(o => o.status === 'printing' || o.status === 'queue').length;
+      const bOrd = document.getElementById('badge-orders-count');
+      const bSpl = document.getElementById('badge-spools-count');
+      const mOrd = document.getElementById('mob-badge-orders');
+      const mSpl = document.getElementById('mob-badge-spools');
+      if (bOrd) bOrd.innerText = activeCount;
+      if (bSpl) bSpl.innerText = spools.length;
+      if (mOrd) mOrd.innerText = activeCount;
+      if (mSpl) mSpl.innerText = spools.length;
+    }
+
+    function renderOrders() {
+      const tbody = document.getElementById('orders-tbody');
+      const emptyState = document.getElementById('orders-empty-state');
+      const search = (document.getElementById('order-search-inp').value || '').toLowerCase();
+
+      document.getElementById('fc-all').innerText = orders.length;
+      document.getElementById('fc-printing').innerText = orders.filter(o => o.status === 'printing').length;
+      document.getElementById('fc-queue').innerText = orders.filter(o => o.status === 'queue').length;
+      document.getElementById('fc-ready').innerText = orders.filter(o => o.status === 'ready').length;
+      document.getElementById('fc-completed').innerText = orders.filter(o => o.status === 'completed').length;
+      updateBadge();
+
+      const filtered = orders.filter(o => {
+        const matchesFilter = (activeFilter === 'all') || (o.status === activeFilter);
+        const matchesSearch = !search || o.client.toLowerCase().includes(search) || o.item.toLowerCase().includes(search) || o.id.toLowerCase().includes(search);
+        return matchesFilter && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      tbody.innerHTML = filtered.map(o => {
+        const profit = o.price - o.cost;
+        const statusMap = {
+          printing: { text: 'В печати', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+          queue: { text: 'В очереди', bg: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+          ready: { text: 'Готов', bg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+          completed: { text: 'Выдан', bg: 'bg-slate-800 text-slate-400 border-slate-700' }
+        };
+        const st = statusMap[o.status] || statusMap.queue;
+
+        return `
+          <tr class="hover:bg-slate-800/30 transition border-b border-slate-800/40">
+            <td class="p-3.5">
+              <span class="font-bold text-emerald-400">${o.id}</span>
+              <div class="text-[10px] text-slate-500 font-sans">Срок: ${o.deadline}</div>
+            </td>
+            <td class="p-3.5 font-sans">
+              <div class="font-medium text-slate-200">${o.client}</div>
+              <div class="text-[10px] text-slate-500 font-mono">${o.phone || '—'}</div>
+            </td>
+            <td class="p-3.5 font-sans text-slate-300">${o.item}</td>
+            <td class="p-3.5 text-slate-400">${o.weight} г</td>
+            <td class="p-3.5 text-right text-slate-400">${o.cost.toLocaleString('ru-RU')} ₸</td>
+            <td class="p-3.5 text-right font-bold text-white">${o.price.toLocaleString('ru-RU')} ₸</td>
+            <td class="p-3.5 text-right text-emerald-400 font-bold">+${profit.toLocaleString('ru-RU')} ₸</td>
+            <td class="p-3.5 text-center font-sans">
+              <select onchange="updateStatus('${o.id}', this.value)" class="text-xs rounded-lg px-2 py-1 border focus:outline-none ${st.bg}">
+                <option value="queue" ${o.status==='queue'?'selected':''}>В очереди</option>
+                <option value="printing" ${o.status==='printing'?'selected':''}>В печати</option>
+                <option value="ready" ${o.status==='ready'?'selected':''}>Готов</option>
+                <option value="completed" ${o.status==='completed'?'selected':''}>Выдан</option>
+              </select>
+            </td>
+            <td class="p-3.5 text-center">
+              <button onclick="deleteOrder('${o.id}')" class="text-slate-500 hover:text-rose-400 transition" title="Удалить">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function setFilter(f) {
+      activeFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.dataset.f === f) {
+          btn.className = 'filter-btn px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        } else {
+          btn.className = 'filter-btn px-3 py-1.5 text-xs font-mono font-medium rounded-lg bg-slate-800/60 text-slate-400 hover:text-white';
+        }
+      });
+      renderOrders();
+    }
+
+    function exportCSV() {
+      if (orders.length === 0) {
+        alert('База заказов пуста');
+        return;
+      }
+      const headers = ['ID', 'Дата', 'Срок', 'Клиент', 'Телефон', 'Изделие', 'Вес_г', 'Траты_ТГ', 'Цена_ТГ', 'Прибыль_ТГ', 'Статус'];
+      const rows = orders.map(o => [
+        o.id, o.date, o.deadline, `"${o.client}"`, `"${o.phone || ''}"`, `"${o.item}"`, o.weight, o.cost, o.price, (o.price - o.cost), o.status
+      ]);
+      const csv = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+    }
+
+    function backupJSON() {
+      const data = { orders, spools, settings, exportDate: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `qlab_database_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+    }
+
+    // --- Render Finance Analytics ---
+    function renderFinance() {
+      const totalRev = orders.reduce((sum, o) => sum + (o.price || 0), 0);
+      const totalCost = orders.reduce((sum, o) => sum + (o.cost || 0), 0);
+      const totalProfit = totalRev - totalCost;
+      const margin = totalRev > 0 ? Math.round((totalProfit / totalRev) * 100) : 0;
+      const avgCheck = orders.length > 0 ? Math.round(totalRev / orders.length) : 0;
+      const totalKg = (orders.reduce((sum, o) => sum + (o.weight || 0), 0) / 1000).toFixed(2);
+
+      document.getElementById('kpi-rev').innerText = totalRev.toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('kpi-profit').innerText = totalProfit.toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('kpi-costs').innerText = totalCost.toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('kpi-margin').innerText = margin + '%';
+      document.getElementById('kpi-avg').innerText = avgCheck.toLocaleString('ru-RU') + ' ₸';
+      document.getElementById('kpi-plastic').innerText = totalKg + ' кг';
+      document.getElementById('kpi-count').innerText = orders.length;
+
+      // Chart 1: Bar
+      const ctx1 = document.getElementById('finance-chart').getContext('2d');
+      if (chartFinance) chartFinance.destroy();
+
+      const labels = orders.slice().reverse().map(o => o.id + ' (' + o.client.split(' ')[0] + ')');
+      const revs = orders.slice().reverse().map(o => o.price);
+      const profits = orders.slice().reverse().map(o => o.price - o.cost);
+
+      chartFinance = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: labels.length ? labels : ['Нет данных'],
+          datasets: [
+            { label: 'Выручка (₸)', data: revs.length ? revs : [0], backgroundColor: '#10b981', borderRadius: 4 },
+            { label: 'Чистая прибыль (₸)', data: profits.length ? profits : [0], backgroundColor: '#06b6d4', borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'Space Mono', size: 10 } } } },
+          scales: {
+            x: { ticks: { color: '#64748b' }, grid: { display: false } },
+            y: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+          }
+        }
+      });
+
+      // Chart 2: Cost Breakdown
+      const ctx2 = document.getElementById('cost-doughnut').getContext('2d');
+      if (chartDoughnut) chartDoughnut.destroy();
+
+      const pCost = totalCost > 0 ? Math.round(totalCost * 0.55) : 1;
+      const dCost = totalCost > 0 ? Math.round(totalCost * 0.32) : 1;
+      const elCost = totalCost > 0 ? Math.round(totalCost * 0.03) : 1;
+      const rCost = totalCost > 0 ? Math.round(totalCost * 0.10) : 1;
+
+      chartDoughnut = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+          labels: ['Пластик', 'Амортизация', 'Электроэнергия', 'Риски/Брак'],
+          datasets: [{
+            data: totalCost > 0 ? [pCost, dCost, elCost, rCost] : [1, 1, 1, 1],
+            backgroundColor: ['#10b981', '#f59e0b', '#06b6d4', '#ef4444'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Space Mono', size: 10 } } } }
+        }
+      });
+    }
+
+    // --- Calendar Logic ---
+    function renderCalendar() {
+      const year = calDate.getFullYear();
+      const month = calDate.getMonth();
+      const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+      document.getElementById('cal-title').innerText = `${monthNames[month]} ${year}`;
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+
+      let startDayIdx = firstDay.getDay() - 1;
+      if (startDayIdx === -1) startDayIdx = 6;
+
+      const container = document.getElementById('cal-grid');
+      container.innerHTML = '';
+
+      for (let i = 0; i < startDayIdx; i++) {
+        container.innerHTML += `<div class="h-24 bg-[#0c0c14] rounded-lg border border-slate-800/30"></div>`;
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const curDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayOrders = orders.filter(o => o.deadline === curDateStr || o.date === curDateStr);
+        const isToday = curDateStr === todayStr;
+
+        let badges = dayOrders.map(o => `
+          <div class="px-1.5 py-0.5 rounded text-[9px] font-mono border truncate bg-slate-800/80 text-emerald-400 border-slate-700" title="${o.client}: ${o.item}">
+            ${o.id}: ${o.price.toLocaleString('ru-RU')}₸
+          </div>
+        `).join('');
+
+        container.innerHTML += `
+          <div class="h-24 bg-[#12121a] p-1.5 rounded-lg border ${isToday ? 'border-emerald-500' : 'border-slate-800'} flex flex-col justify-between">
+            <div class="flex justify-between items-center text-xs font-mono">
+              <span class="font-bold ${isToday ? 'text-emerald-400' : 'text-slate-500'}">${day}</span>
+              ${dayOrders.length ? `<span class="text-[9px] bg-slate-800 text-slate-300 px-1 rounded font-mono">${dayOrders.length}</span>` : ''}
+            </div>
+            <div class="space-y-1 overflow-y-auto max-h-16 mt-0.5">
+              ${badges}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function calPrev() { calDate.setMonth(calDate.getMonth() - 1); renderCalendar(); }
+    function calNext() { calDate.setMonth(calDate.getMonth() + 1); renderCalendar(); }
+    function calGoToday() { calDate = new Date(); renderCalendar(); }
+
+    // --- Settings Modal ---
+    function openSettingsModal() {
+      document.getElementById('cfg-rate-mat').value = settings.rateMat || 45;
+      document.getElementById('cfg-rate-time').value = settings.rateTime || 150;
+
+      document.getElementById('cfg-plastic').value = settings.plastic;
+      document.getElementById('cfg-power').value = settings.power;
+      document.getElementById('cfg-deprec').value = settings.deprec;
+      document.getElementById('cfg-watts').value = settings.watts;
+      document.getElementById('modal-settings').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('modal-settings').classList.add('hidden');
+    }
+
+    function saveSettings() {
+      settings.rateMat = parseFloat(document.getElementById('cfg-rate-mat').value) || 45;
+      settings.rateTime = parseFloat(document.getElementById('cfg-rate-time').value) || 150;
+
+      settings.plastic = parseFloat(document.getElementById('cfg-plastic').value) || 6000;
+      settings.power = parseFloat(document.getElementById('cfg-power').value) || 30.15;
+      settings.deprec = parseFloat(document.getElementById('cfg-deprec').value) || 120;
+      settings.watts = parseFloat(document.getElementById('cfg-watts').value) || 110;
+
+      dbSaveSettings();
+
+      document.getElementById('sb-client-mat').innerText = settings.rateMat + ' ₸/г';
+      document.getElementById('sb-client-time').innerText = settings.rateTime + ' ₸/ч';
+
+      closeSettingsModal();
+      recalc();
+    }
+
+    function clearAllData() {
+      if (confirm('Внимание: это полностью очистит базу данных и склад. Продолжить?')) {
+        orders = [];
+        spools = [];
+        syncToLocalStorage();
+        if (idb) {
+          const tx = idb.transaction(['orders', 'spools'], 'readwrite');
+          tx.objectStore('orders').clear();
+          tx.objectStore('spools').clear();
+        }
+        closeSettingsModal();
+        renderSpools();
+        renderOrders();
+        updateSpoolSelect();
+        recalc();
+        updateBadge();
+        alert('База полностью очищена.');
+      }
+    }
+
+    // --- Boot Lifecycle ---
+    document.addEventListener('DOMContentLoaded', () => {
+      checkUrlForCloudConfig();
+      openDatabase().then(() => {
+        document.getElementById('sb-client-mat').innerText = (settings.rateMat || 45) + ' ₸/г';
+        document.getElementById('sb-client-time').innerText = (settings.rateTime || 150) + ' ₸/ч';
+
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+        const deadlineEl = document.getElementById('order-deadline');
+        if (deadlineEl) deadlineEl.value = tomorrow;
+
+        updateSpoolSelect();
+        recalc();
+        updateBadge();
+
+        // Initialize cloud & local server synchronization
+        initFirebaseSync();
+        checkLocalServerSync();
+      });
+    });
+  </script>
+</body>
+</html>

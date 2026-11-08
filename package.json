@@ -1,0 +1,12 @@
+{
+  "name": "qlab_calc",
+  "version": "1.0.0",
+  "description": "Qlab Studio — Профессиональный калькулятор и онлайн CRM/ERP для 3D печати",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["3d-printing", "bambu-lab", "ams", "calculator", "crm", "zhetysu", "qlab"],
+  "author": "qazaqlab",
+  "license": "MIT"
+}
